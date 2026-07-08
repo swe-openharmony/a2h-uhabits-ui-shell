@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Converted from bg_input_group.xml (shape: rectangle)
+     Actual XML: solid ?attr/contrast0 -> #FFFFFF, stroke 1dp ?attr/contrast20 -> #D8D8D8, corners 4dp.
+     Padding (not rendered in SVG): 8dp all sides.
+     Note: task description said "no solid fill, ?attr/contrast40 stroke" but actual XML has
+     ?attr/contrast0 solid and ?attr/contrast20 stroke; converted from actual XML content. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <rect x="0.5" y="0.5" width="99" height="99" rx="4" ry="4"
+        fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1"/>
+</svg>

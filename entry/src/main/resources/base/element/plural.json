@@ -1,0 +1,46 @@
+{
+  "plural": [
+    {
+      "name": "toast_habits_changed",
+      "value": [
+        { "quantity": "one", "value": "Habit changed" },
+        { "quantity": "other", "value": "Habits changed" }
+      ]
+    },
+    {
+      "name": "toast_habits_deleted",
+      "value": [
+        { "quantity": "one", "value": "Habit deleted" },
+        { "quantity": "other", "value": "Habits deleted" }
+      ]
+    },
+    {
+      "name": "toast_habits_archived",
+      "value": [
+        { "quantity": "one", "value": "Habit archived" },
+        { "quantity": "other", "value": "Habits archived" }
+      ]
+    },
+    {
+      "name": "toast_habits_unarchived",
+      "value": [
+        { "quantity": "one", "value": "Habit unarchived" },
+        { "quantity": "other", "value": "Habits unarchived" }
+      ]
+    },
+    {
+      "name": "delete_habits_title",
+      "value": [
+        { "quantity": "one", "value": "Delete habit?" },
+        { "quantity": "other", "value": "Delete habits?" }
+      ]
+    },
+    {
+      "name": "delete_habits_message",
+      "value": [
+        { "quantity": "one", "value": "The habit will be permanently deleted. This action cannot be undone." },
+        { "quantity": "other", "value": "The habits will be permanently deleted. This action cannot be undone." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/ShowHabitPage",
+    "pages/EditHabitPage",
+    "pages/SettingsPage",
+    "pages/AboutPage",
+    "pages/IntroPage"
+  ]
+}
