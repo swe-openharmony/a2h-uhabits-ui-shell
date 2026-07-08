@@ -259,9 +259,9 @@ export default class EntryAbility extends UIAbility {
 
     const params = want.parameters as Record<string, Object>
 
-    const scenarioAction = (params['scenario_action'] as string | undefined) || (params['fix' + 'ture_action'] as string | undefined)
-    if (scenarioAction) {
-      this.handleScenarioAction(scenarioAction, params)
+    const fixtureAction = params['fixture_action'] as string | undefined
+    if (fixtureAction) {
+      this.handleFixtureAction(fixtureAction, params)
     }
 
     // Handle snapshot_action
@@ -277,7 +277,7 @@ export default class EntryAbility extends UIAbility {
     }
   }
 
-  private handleScenarioAction(action: string, params: Record<string, Object>): void {
+  private handleFixtureAction(action: string, params: Record<string, Object>): void {
     if (action === 'seed_all') {
       const seedBlobPath = params['seed_blob_path'] as string | undefined
       if (seedBlobPath) {
@@ -289,7 +289,7 @@ export default class EntryAbility extends UIAbility {
       this.applySeedState('DS-01')  // DS-01 = empty
     } else if (action === 'seed') {
       // Seed a specific data state
-      const dataStateId = params['state_profile'] || params['data_' + 'state_id'] as string | undefined
+      const dataStateId = params['data_state_id'] as string | undefined
       if (dataStateId) {
         this.applySeedState(dataStateId)
       }

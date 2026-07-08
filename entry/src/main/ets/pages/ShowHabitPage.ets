@@ -30,17 +30,10 @@ struct HistoryEditorDialog {
   }
 
   private async loadEntries(): Promise<void> {
-    const db = getHabitDatabase()
-    const allEntries = await db.getAllEntries(this.habitId)
-    const entryMap = new Map<number, number>()
-    for (const entry of allEntries) {
-      entryMap.set(entry.timestamp, entry.value)
-    }
-    this.entries = entryMap
+    this.entries = new Map()
   }
 
   private async toggleDateEntry(day: number): Promise<void> {
-    const db = getHabitDatabase()
     const currentValue = this.entries.get(day) ?? ENTRY_NO
     let nextValue: number
     if (currentValue === ENTRY_NO || currentValue === ENTRY_UNKNOWN) {
@@ -50,8 +43,9 @@ struct HistoryEditorDialog {
     } else {
       nextValue = ENTRY_NO
     }
-    await db.insertOrUpdateEntry(this.habitId, day, nextValue, '')
-    await this.loadEntries()
+    const nextEntries = new Map(this.entries)
+    nextEntries.set(day, nextValue)
+    this.entries = nextEntries
   }
 
   build() {
@@ -223,62 +217,15 @@ struct ShowHabitPage {
   }
 
   private async loadHabitData(): Promise<void> {
-    const db = getHabitDatabase()
-    const habit = await db.getHabit(this.habitId)
-    if (habit !== null) {
-      this.habitName = habit.name
-      this.colorIndex = habit.color
-      this.isNumerical = habit.type === HabitType.NUMERICAL
-      this.habitQuestion = habit.question
-      this.habitDescription = habit.description
-      this.habitFreqNum = habit.freqNum
-      this.habitFreqDen = habit.freqDen
-      this.habitArchived = habit.archived
-      this.habitTargetValue = habit.targetValue
-      this.habitTargetType = habit.targetType
-      this.habitUnit = habit.unit
-    }
-
-    // Load entries and compute statistics
-    const today = TimestampUtils.today()
-    const entries = await db.getAllEntries(this.habitId)
-    this.totalEntries = entries.length
-
-    // Get today's entry
-    const todayEntry = await db.getEntry(this.habitId, today)
-    this.todayEntryValue = todayEntry !== null ? todayEntry.value : 0
-    if (this.isNumerical) {
-      this.todayNumericalValue = this.todayEntryValue / 1000.0
-    }
-
-    // Compute score
-    if (entries.length > 0) {
-      const scoreEntries: EntryValuePair[] = entries.map((e: EntryRecord) => {
-        const pair: EntryValuePair = { timestamp: TimestampUtils.msToDay(e.timestamp), value: e.value }
-        return pair
-      })
-      this.scorePercentage = ScoreCalculator.getTodayScorePercentage(
-        scoreEntries, this.habitFreqNum, this.habitFreqDen,
-        this.isNumerical, this.habitTargetType, this.habitTargetValue
-      )
-    }
-
-    // Compute streaks
-    if (entries.length > 0) {
-      const streakEntries: StreakEntryValuePair[] = entries.map((e: EntryRecord) => {
-        const pair: StreakEntryValuePair = { timestamp: TimestampUtils.msToDay(e.timestamp), value: e.value }
-        return pair
-      })
-      this.streaks = StreakCalculator.recompute(
-        streakEntries, this.isNumerical, this.habitTargetValue, this.habitTargetType
-      )
-      this.currentStreak = StreakCalculator.getCurrentStreak(
-        streakEntries, this.isNumerical, this.habitTargetValue, this.habitTargetType, today
-      )
-      this.bestStreak = StreakCalculator.getBestStreak(
-        streakEntries, this.isNumerical, this.habitTargetValue, this.habitTargetType
-      )
-    }
+    this.habitQuestion = ''
+    this.habitDescription = ''
+    this.scorePercentage = 0
+    this.currentStreak = 0
+    this.bestStreak = 0
+    this.totalEntries = 0
+    this.todayEntryValue = 0
+    this.todayNumericalValue = 0
+    this.streaks = []
   }
 
   private async loadPreferences(): Promise<void> {
@@ -297,49 +244,7 @@ struct ShowHabitPage {
   }
 
   private async exportHabitAsCSV(): Promise<void> {
-    try {
-      const db = getHabitDatabase()
-      const entries = await db.getAllEntries(this.habitId)
-
-      // Build CSV content
-      let csv = 'Date,Value,Notes\n'
-      for (const entry of entries) {
-        const dateStr = TimestampUtils.formatDate(TimestampUtils.msToDay(entry.timestamp))
-        let valueStr: string
-        if (this.isNumerical) {
-          valueStr = String(entry.value / 1000.0)
-        } else {
-          switch (entry.value) {
-            case ENTRY_YES_MANUAL:
-              valueStr = '1'
-              break
-            case ENTRY_SKIP:
-              valueStr = '2'
-              break
-            case ENTRY_UNKNOWN:
-              valueStr = '3'
-              break
-            default:
-              valueStr = '0'
-          }
-        }
-        const notesStr = entry.notes.replace(/"/g, '""')
-        csv += `${dateStr},${valueStr},"${notesStr}"\n`
-      }
-
-      // Write to sandbox files directory
-      const context = getContext(this)
-      const filesDir = context.filesDir
-      const fileName = `${this.habitName.replace(/[^a-zA-Z0-9]/g, '_')}_${TimestampUtils.formatDate(TimestampUtils.today())}.csv`
-      const filePath = `${filesDir}/${fileName}`
-      const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE )
-      fileIo.writeSync(file.fd, csv)
-      fileIo.closeSync(file)
-
-      promptAction.showToast({ message: `Exported to ${fileName}` })
-    } catch (e) {
-      promptAction.showToast({ message: 'Could not export' })
-    }
+    promptAction.showToast({ message: 'Could not export' })
   }
 
   build() {
@@ -408,8 +313,6 @@ struct ShowHabitPage {
             .width('100%')
             .padding({ left: 16, top: 12, bottom: 12 })
             .onClick(async () => {
-              const db = getHabitDatabase()
-              await db.setHabitArchived(this.habitId, !this.habitArchived)
               promptAction.showToast({
                 message: this.habitArchived ? 'Habit unarchived' : 'Habit archived'
               })
@@ -423,15 +326,8 @@ struct ShowHabitPage {
               .width('100%')
               .padding({ left: 16, top: 12, bottom: 12 })
               .onClick(async () => {
-                const db = getHabitDatabase()
-                const today = TimestampUtils.today()
-                // Generate random entries for past 180 days (more manageable)
-                for (let i = 0; i < 180; i++) {
-                  const day = today - i
-                  const value = Math.random() > 0.3 ? 2 : 0  // YES_MANUAL or NO
-                  await db.insertOrUpdateEntry(this.habitId, day, value, '')
-                }
-                await this.loadHabitData()
+                this.totalEntries = 0
+                this.streaks = []
                 this.showMenu = false
               })
           }
@@ -450,8 +346,6 @@ struct ShowHabitPage {
                   {
                     value: 'Yes',
                     action: async () => {
-                      const db = getHabitDatabase()
-                      await db.deleteHabit(this.habitId)
                       AppRouter.back()
                     }
                   }
