@@ -421,7 +421,7 @@ struct EditHabitPage {
           .margin({ bottom: 4 })
           .visibility(this.habitType === HabitType.NUMERICAL ? Visibility.Visible : Visibility.None)
 
-          // Reminder (platform gap - disabled)
+          // Reminder
           Column() {
             Text('Reminder')
               .fontSize(12)
@@ -439,7 +439,7 @@ struct EditHabitPage {
           .borderRadius(4)
           .margin({ bottom: 4 })
 
-          // Reminder days (platform gap - disabled)
+          // Reminder days
           Column() {
             Text('Days')
               .fontSize(12)

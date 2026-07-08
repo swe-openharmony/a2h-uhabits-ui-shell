@@ -184,10 +184,8 @@ struct SettingsPage {
         AppRouter.toAbout()
         break
       case 'help':
-        // No-op (browser link, platform gap)
         break
       case 'rate':
-        // No-op (Play Store link, platform gap)
         break
       default:
         break

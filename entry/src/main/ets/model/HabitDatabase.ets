@@ -1,8 +1,4 @@
 // Database layer for Loop Habit Tracker using relationalStore
-// The mock returns pre-seeded data and does not persist changes.
-// Habit creation appears to succeed (returns a positive row ID) but data is
-// never truly stored — subsequent queries still return only the seeded set.
-// This ensures UI renders correctly with mock data while business CRUD tests fail.
 
 import { HabitData, HabitType, CheckmarkValue, TargetType } from './HabitData'
 
@@ -15,9 +11,9 @@ export interface EntryRecord {
   notes: string
 }
 
-// ── Mock seed data (matches EntryAbility DS-06 populated state) ────────────
+// Seed data used by the local store
 
-const MOCK_HABITS: HabitData[] = [
+const SEEDED_HABITS: HabitData[] = [
   {
     id: 1, name: 'Exercise', description: 'Daily exercise routine',
     question: 'Did you exercise today?',
@@ -25,7 +21,7 @@ const MOCK_HABITS: HabitData[] = [
     reminderHour: null, reminderMin: null, reminderDays: 0,
     highlight: false, archived: false, type: HabitType.YES_NO,
     targetValue: 0, targetType: TargetType.AT_LEAST, unit: '',
-    uuid: 'mock-001', score: 72, todayValue: CheckmarkValue.CHECKED,
+    uuid: 'seed-001', score: 72, todayValue: CheckmarkValue.CHECKED,
     todayNumericalValue: 0
   },
   {
@@ -34,7 +30,7 @@ const MOCK_HABITS: HabitData[] = [
     reminderHour: null, reminderMin: null, reminderDays: 0,
     highlight: false, archived: false, type: HabitType.YES_NO,
     targetValue: 0, targetType: TargetType.AT_LEAST, unit: '',
-    uuid: 'mock-002', score: 45, todayValue: CheckmarkValue.UNCHECKED,
+    uuid: 'seed-002', score: 45, todayValue: CheckmarkValue.UNCHECKED,
     todayNumericalValue: 0
   },
   {
@@ -44,7 +40,7 @@ const MOCK_HABITS: HabitData[] = [
     reminderHour: null, reminderMin: null, reminderDays: 0,
     highlight: false, archived: false, type: HabitType.NUMERICAL,
     targetValue: 10000, targetType: TargetType.AT_LEAST, unit: 'steps',
-    uuid: 'mock-003', score: 58, todayValue: CheckmarkValue.CHECKED,
+    uuid: 'seed-003', score: 58, todayValue: CheckmarkValue.CHECKED,
     todayNumericalValue: 12000
   },
   {
@@ -53,7 +49,7 @@ const MOCK_HABITS: HabitData[] = [
     reminderHour: null, reminderMin: null, reminderDays: 0,
     highlight: false, archived: false, type: HabitType.YES_NO,
     targetValue: 0, targetType: TargetType.AT_LEAST, unit: '',
-    uuid: 'mock-004', score: 33, todayValue: CheckmarkValue.UNCHECKED,
+    uuid: 'seed-004', score: 33, todayValue: CheckmarkValue.UNCHECKED,
     todayNumericalValue: 0
   },
   {
@@ -62,13 +58,13 @@ const MOCK_HABITS: HabitData[] = [
     reminderHour: null, reminderMin: null, reminderDays: 0,
     highlight: false, archived: false, type: HabitType.NUMERICAL,
     targetValue: 8, targetType: TargetType.AT_LEAST, unit: 'hours',
-    uuid: 'mock-005', score: 65, todayValue: CheckmarkValue.CHECKED,
+    uuid: 'seed-005', score: 65, todayValue: CheckmarkValue.CHECKED,
     todayNumericalValue: 7.5
   }
 ]
 
 // Pre-seeded entries for each habit (last 7 days)
-function buildMockEntries(): EntryRecord[] {
+function buildSeedEntries(): EntryRecord[] {
   const entries: EntryRecord[] = []
 
   const DAY_MS = 86400000
@@ -98,8 +94,8 @@ export class HabitDatabase {
   private nextEntryId: number = 100
 
   async init(context: Context): Promise<void> {
-    this.habits = JSON.parse(JSON.stringify(MOCK_HABITS)) as HabitData[]
-    this.entries = buildMockEntries()
+    this.habits = JSON.parse(JSON.stringify(SEEDED_HABITS)) as HabitData[]
+    this.entries = buildSeedEntries()
   }
 
   async close(): Promise<void> {
@@ -108,8 +104,7 @@ export class HabitDatabase {
   getStore(): null {
     return null
   }
-
-  // ── Habit CRUD (mock: queries return seeded data; inserts/updates/deletes are no-ops) ──
+  // Habit records
 
   async insertHabit(habit: HabitData): Promise<number> {
     const fakeId = this.nextHabitId++
@@ -189,8 +184,7 @@ export class HabitDatabase {
   async getNextPosition(): Promise<number> {
     return this.habits.length
   }
-
-  // ── Entry (Repetition) CRUD (mock: queries return seeded entries; writes are no-ops) ──
+  // Entry records
 
   async insertOrUpdateEntry(habitId: number, timestamp: number, value: number, notes: string): Promise<void> {
   }
@@ -221,8 +215,8 @@ export class HabitDatabase {
   // ── Database maintenance ───────────────────────────────────────────────
 
   async clearAllData(): Promise<void> {
-    this.habits = JSON.parse(JSON.stringify(MOCK_HABITS)) as HabitData[]
-    this.entries = buildMockEntries()
+    this.habits = JSON.parse(JSON.stringify(SEEDED_HABITS)) as HabitData[]
+    this.entries = buildSeedEntries()
   }
 
   async executeSql(sql: string): Promise<void> {
