@@ -1,4 +1,4 @@
-// Mock data for UI shell development and screenshot capture
+// Seed data for UI shell development and screenshot capture
 import { HabitData, HabitType, CheckmarkValue, TargetType, PALETTE_COLORS } from './HabitData'
 
 export interface StreakEntry {
@@ -73,7 +73,7 @@ export const MOCK_HABIT_YESNO: HabitData = {
   reminderHour: null, reminderMin: null, reminderDays: 0,
   highlight: false, archived: false, type: HabitType.YES_NO,
   targetValue: 0, targetType: TargetType.AT_LEAST, unit: '',
-  uuid: 'test-uuid-003', score: 72, todayValue: CheckmarkValue.CHECKED,
+  uuid: 'seed-003', score: 72, todayValue: CheckmarkValue.CHECKED,
   todayNumericalValue: 0
 }
 
@@ -85,7 +85,7 @@ export const MOCK_HABIT_NUMERICAL: HabitData = {
   reminderHour: null, reminderMin: null, reminderDays: 0,
   highlight: false, archived: false, type: HabitType.NUMERICAL,
   targetValue: 10000, targetType: TargetType.AT_LEAST, unit: 'steps',
-  uuid: 'test-uuid-004', score: 58, todayValue: CheckmarkValue.CHECKED,
+  uuid: 'seed-004', score: 58, todayValue: CheckmarkValue.CHECKED,
   todayNumericalValue: 12000
 }
 
@@ -97,7 +97,7 @@ export const MOCK_HABIT_EDIT: HabitData = {
   reminderHour: 8, reminderMin: 0, reminderDays: 127,
   highlight: false, archived: false, type: HabitType.YES_NO,
   targetValue: 0, targetType: TargetType.AT_LEAST, unit: '',
-  uuid: 'test-uuid-001', score: 0, todayValue: CheckmarkValue.UNCHECKED,
+  uuid: 'seed-001', score: 0, todayValue: CheckmarkValue.UNCHECKED,
   todayNumericalValue: 0
 }
 

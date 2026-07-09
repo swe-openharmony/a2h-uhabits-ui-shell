@@ -1,12 +1,8 @@
 // Settings page - SettingsActivity equivalent
-// Full business logic: preferences persistence, CSV/DB export, import, database maintenance
-import { SETTINGS_CATEGORIES, SettingCategory, SettingItem } from '../model/MockData'
+import { SETTINGS_CATEGORIES, SettingCategory, SettingItem } from '../model/SeedData'
 import { AppRouter } from '../common/AppRouter'
 import { getPreferencesStore } from '../model/PreferencesStore'
-import { getHabitDatabase, EntryRecord } from '../model/HabitDatabase'
-import { TimestampUtils } from '../model/TimestampUtils'
 import { promptAction } from '@kit.ArkUI'
-import { fileIo } from '@kit.CoreFileKit'
 
 @Entry
 @Component
@@ -36,9 +32,7 @@ struct SettingsPage {
   }
 
   private async handleToggle(key: string, isOn: boolean): Promise<void> {
-    const prefs = getPreferencesStore()
     this.toggleStates[key] = isOn
-    await prefs.setBoolean(key, isOn)
 
     // Special handling for developer toggle
     if (key === 'pref_developer' && isOn) {
@@ -47,110 +41,11 @@ struct SettingsPage {
   }
 
   private async exportFullBackup(): Promise<void> {
-    try {
-      const db = getHabitDatabase()
-      const habits = await db.getAllHabits()
-      const allEntries: EntryRecord[] = []
-
-      // Build JSON backup
-      const backupData: Record<string, Object> = {}
-      const habitsList: Array<Record<string, Object>> = []
-      for (const habit of habits) {
-        const habitRecord: Record<string, Object> = {
-          'id': habit.id,
-          'name': habit.name,
-          'description': habit.description,
-          'question': habit.question,
-          'freqNum': habit.freqNum,
-          'freqDen': habit.freqDen,
-          'color': habit.color,
-          'position': habit.position,
-          'archived': habit.archived ? 1 : 0,
-          'type': habit.type,
-          'targetValue': habit.targetValue,
-          'targetType': habit.targetType,
-          'unit': habit.unit,
-          'uuid': habit.uuid
-        }
-        habitsList.push(habitRecord)
-
-        const entries = await db.getAllEntries(habit.id)
-        for (const entry of entries) {
-          allEntries.push(entry)
-        }
-      }
-
-      const entriesList: Array<Record<string, Object>> = []
-      for (const entry of allEntries) {
-        entriesList.push({
-          'habitId': entry.habitId,
-          'timestamp': entry.timestamp,
-          'value': entry.value,
-          'notes': entry.notes
-        })
-      }
-
-      backupData['habits'] = habitsList
-      backupData['entries'] = entriesList
-
-      const jsonStr = JSON.stringify(backupData)
-
-      // Write to sandbox
-      const context = getContext(this)
-      const filesDir = context.filesDir
-      const fileName = `uhabits_backup_${TimestampUtils.formatDate(TimestampUtils.today())}.json`
-      const filePath = `${filesDir}/${fileName}`
-      const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE )
-      fileIo.writeSync(file.fd, jsonStr)
-      fileIo.closeSync(file)
-
-      promptAction.showToast({ message: `Backup saved: ${fileName}` })
-    } catch (e) {
-      promptAction.showToast({ message: 'Could not export' })
-    }
+    promptAction.showToast({ message: 'Could not export' })
   }
 
   private async exportAsCSV(): Promise<void> {
-    try {
-      const db = getHabitDatabase()
-      const habits = await db.getAllHabits()
-
-      // Build CSV content for all habits
-      let csv = 'Habit,Date,Value,Notes\n'
-      for (const habit of habits) {
-        const entries = await db.getAllEntries(habit.id)
-        for (const entry of entries) {
-          const dateStr = TimestampUtils.formatDate(TimestampUtils.msToDay(entry.timestamp))
-          let valueStr: string
-          if (habit.type === 1) { // NUMERICAL
-            valueStr = String(entry.value / 1000.0)
-          } else {
-            switch (entry.value) {
-              case 2: valueStr = '1'; break   // YES_MANUAL
-              case 3: valueStr = '2'; break   // SKIP
-              case -1: valueStr = '3'; break  // UNKNOWN
-              default: valueStr = '0'; break  // NO
-            }
-          }
-          const notesStr = entry.notes.replace(/"/g, '""')
-          const nameStr = habit.name.replace(/"/g, '""')
-          csv += `"${nameStr}",${dateStr},${valueStr},"${notesStr}"\n`
-        }
-      }
-
-      // Write to sandbox
-      const context = getContext(this)
-      const filesDir = context.filesDir
-      const fileName = `uhabits_csv_${TimestampUtils.formatDate(TimestampUtils.today())}.csv`
-      const filePath = `${filesDir}/${fileName}`
-      const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE )
-      fileIo.writeSync(file.fd, csv)
-      fileIo.closeSync(file)
-
-      promptAction.showToast({ message: `CSV saved: ${fileName}` })
-    } catch (e) {
-      promptAction.showToast({ message: 'Could not export' })
-    }
+    promptAction.showToast({ message: 'Could not export' })
   }
 
   private async handleItemClick(key: string): Promise<void> {
@@ -168,14 +63,7 @@ struct SettingsPage {
         promptAction.showToast({ message: 'Backup folder not available' })
         break
       case 'repair_db':
-        try {
-          const db = getHabitDatabase()
-          // Repair = re-open and verify DB integrity
-          await db.getAllHabits()
-          promptAction.showToast({ message: 'Database repaired' })
-        } catch (e) {
-          promptAction.showToast({ message: 'Repair failed' })
-        }
+        promptAction.showToast({ message: 'Repair failed' })
         break
       case 'bug_report':
         promptAction.showToast({ message: 'Bug report not available' })

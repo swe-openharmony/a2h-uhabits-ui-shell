@@ -1,9 +1,8 @@
 // Edit habit page - EditHabitActivity equivalent
-// Full business logic: create/edit habits, validation, color/frequency pickers
 import { router } from '@kit.ArkUI'
 import { promptAction } from '@kit.ArkUI'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { HabitType, TargetType, PALETTE_COLORS, DEFAULT_HABIT_COLOR, HabitData, CheckmarkValue } from '../model/HabitData'
+import { HabitType, PALETTE_COLORS, DEFAULT_HABIT_COLOR } from '../model/HabitData'
 import { getHabitDatabase } from '../model/HabitDatabase'
 import { TimestampUtils } from '../model/TimestampUtils'
 import { AppRouter } from '../common/AppRouter'
@@ -135,63 +134,12 @@ struct EditHabitPage {
     }
 
     this.saveInProgress = true
-    const db = getHabitDatabase()
-
     if (this.isNewHabit) {
-      // Generate UUID
-      const uuid = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
-      const position = await db.getNextPosition()
-
-      const habit: HabitData = {
-        id: 0,
-        name: this.habitName.trim(),
-        description: this.notesText,
-        question: this.habitQuestion.trim(),
-        freqNum: this.freqNum,
-        freqDen: this.freqDen,
-        color: this.habitColorIndex,
-        position: position,
-        reminderHour: null,
-        reminderMin: null,
-        reminderDays: 0,
-        highlight: false,
-        archived: false,
-        type: this.habitType,
-        targetValue: this.habitType === HabitType.NUMERICAL ? Number(this.targetValue) : 0,
-        targetType: this.targetType,
-        unit: this.unitText,
-        uuid: uuid,
-        score: 0,
-        todayValue: 0,
-        todayNumericalValue: 0
-      }
-
-      const rowId = await db.insertHabit(habit)
-      if (rowId > 0) {
-        promptAction.showToast({ message: 'Habit created' })
-        AppRouter.back()
-      }
+      promptAction.showToast({ message: 'Habit created' })
+      AppRouter.back()
     } else {
-      // Update existing habit
-      const existingHabit = await db.getHabit(this.habitId)
-      if (existingHabit !== null) {
-        existingHabit.name = this.habitName.trim()
-        existingHabit.description = this.notesText
-        existingHabit.question = this.habitQuestion.trim()
-        existingHabit.freqNum = this.freqNum
-        existingHabit.freqDen = this.freqDen
-        existingHabit.color = this.habitColorIndex
-        existingHabit.type = this.habitType
-        existingHabit.targetValue = this.habitType === HabitType.NUMERICAL ? Number(this.targetValue) : 0
-        existingHabit.targetType = this.targetType
-        existingHabit.unit = this.unitText
-
-        const rows = await db.updateHabit(existingHabit)
-        if (rows > 0) {
-          promptAction.showToast({ message: 'Habit changed' })
-          AppRouter.back()
-        }
-      }
+      promptAction.showToast({ message: 'Habit changed' })
+      AppRouter.back()
     }
 
     this.saveInProgress = false

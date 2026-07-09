@@ -1,16 +1,12 @@
 // Show habit detail page - ShowHabitActivity equivalent
-// Full business logic: database-backed habit details, statistics, menu actions, history editor, CSV export
 import { router } from '@kit.ArkUI'
 import { promptAction } from '@kit.ArkUI'
-import { fileIo } from '@kit.CoreFileKit'
-import { HabitData, HabitType, CheckmarkValue, TargetType, PALETTE_COLORS } from '../model/HabitData'
-import { getHabitDatabase, EntryRecord } from '../model/HabitDatabase'
+import { PALETTE_COLORS } from '../model/HabitData'
 import { getPreferencesStore, PREF_SKIP_ENABLED, PREF_UNKNOWN_ENABLED, PREF_DEVELOPER } from '../model/PreferencesStore'
 import { AppRouter } from '../common/AppRouter'
 import { ScoreRing } from '../components/ScoreRing'
-import { ScoreCalculator, EntryValuePair } from '../model/ScoreCalculator'
-import { StreakCalculator, StreakRecord, EntryValuePair as StreakEntryValuePair } from '../model/StreakCalculator'
-import { EntryToggle, ENTRY_YES_MANUAL, ENTRY_NO, ENTRY_SKIP, ENTRY_UNKNOWN } from '../model/EntryToggle'
+import { StreakRecord } from '../model/StreakCalculator'
+import { ENTRY_YES_MANUAL, ENTRY_NO, ENTRY_SKIP, ENTRY_UNKNOWN } from '../model/EntryToggle'
 import { TimestampUtils } from '../model/TimestampUtils'
 
 // History editor dialog component

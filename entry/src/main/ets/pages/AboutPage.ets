@@ -1,5 +1,5 @@
 // About page - AboutActivity equivalent
-import { DEVELOPERS } from '../model/MockData'
+import { DEVELOPERS } from '../model/SeedData'
 import { AppRouter } from '../common/AppRouter'
 import { getPreferencesStore, PREF_DEVELOPER } from '../model/PreferencesStore'
 import { promptAction } from '@kit.ArkUI'

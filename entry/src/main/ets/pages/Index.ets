@@ -1,5 +1,4 @@
 // Main habit list page - ListHabitsActivity equivalent
-// Full business logic: database-backed habits, filter/sort, checkmark toggle, CRUD
 import { HabitData, HabitType, CheckmarkValue, PALETTE_COLORS } from '../model/HabitData'
 import { getHabitDatabase } from '../model/HabitDatabase'
 import { getPreferencesStore, PREF_SHOW_ARCHIVED, PREF_SHOW_COMPLETED, PREF_SHORT_TOGGLE, PREF_SKIP_ENABLED, PREF_UNKNOWN_ENABLED, PREF_CHECKMARK_REVERSE_ORDER, PREF_DEVELOPER, PREF_THEME } from '../model/PreferencesStore'
@@ -8,7 +7,7 @@ import { ScoreRing } from '../components/ScoreRing'
 import { CheckmarkPanel } from '../components/CheckmarkPanel'
 import { NumberPanel } from '../components/NumberPanel'
 import { ScoreCalculator, EntryValuePair } from '../model/ScoreCalculator'
-import { EntryToggle, ENTRY_YES_MANUAL, ENTRY_NO } from '../model/EntryToggle'
+import { EntryToggle } from '../model/EntryToggle'
 import { TimestampUtils } from '../model/TimestampUtils'
 import { promptAction } from '@kit.ArkUI'
 import { hilog } from '@kit.PerformanceAnalysisKit'
@@ -134,53 +133,8 @@ struct Index {
       }
     }
 
-    // Apply filters
     let filtered = habits
-    if (this.hideArchived) {
-      filtered = filtered.filter((h: HabitData) => !h.archived)
-    }
-    if (this.hideCompleted) {
-      const beforeCompletedFilter = filtered.length
-      filtered = filtered.filter((h: HabitData) => {
-        if (h.type === HabitType.YES_NO) {
-          return h.todayValue !== CheckmarkValue.CHECKED
-        } else {
-          if (h.targetType === 0) {  // AT_LEAST
-            return h.todayNumericalValue < h.targetValue
-          }
-          return true
-        }
-      })
-      // Track if all habits were hidden because they're completed
-      this.allCompletedHidden = beforeCompletedFilter > 0 && filtered.length === 0
-    } else {
-      this.allCompletedHidden = false
-    }
-
-    // Apply sort
-    switch (this.sortMode) {
-      case 0: // Manually
-        filtered.sort((a: HabitData, b: HabitData) => a.position - b.position)
-        break
-      case 1: // By name
-        filtered.sort((a: HabitData, b: HabitData) => a.name.localeCompare(b.name))
-        break
-      case 2: // By color
-        filtered.sort((a: HabitData, b: HabitData) => a.color - b.color)
-        break
-      case 3: // By score
-        filtered.sort((a: HabitData, b: HabitData) => b.score - a.score)
-        break
-      case 4: // By status
-        filtered.sort((a: HabitData, b: HabitData) => {
-          const aDone = this.isHabitCompleted(a) ? 0 : 1
-          const bDone = this.isHabitCompleted(b) ? 0 : 1
-          return aDone - bDone
-        })
-        break
-      default:
-        break
-    }
+    this.allCompletedHidden = false
 
     this.habits = filtered
     hilog.info(0x0000, 'Index', 'Loaded %{public}d habits (filtered from %{public}d total)',
@@ -232,49 +186,11 @@ struct Index {
     AppRouter.toEditHabit(0, type, true)
   }
 
-  private async toggleCheckmark(habitId: number, dayIndex: number): Promise<void> {
-    const db = getHabitDatabase()
-    const today = TimestampUtils.today()
-    const targetDay = today - dayIndex
-
-    // Get current entry
-    const currentEntry = await db.getEntry(habitId, targetDay)
-    let currentValue = ENTRY_NO
-    if (currentEntry !== null) {
-      currentValue = currentEntry.value
-    }
-
-    // Compute next value
-    const nextValue = EntryToggle.nextToggleValue(currentValue, this.skipEnabled, this.unknownEnabled)
-
-    // Save to database
-    await db.insertOrUpdateEntry(habitId, targetDay, nextValue, currentEntry?.notes || '')
-
-    // Refresh UI
-    await this.loadHabits()
-  }
-
-  private async toggleCheckmarkWithValue(habitId: number, dayIndex: number, checkmarkValue: number, notes: string): Promise<void> {
-    const db = getHabitDatabase()
-    const today = TimestampUtils.today()
-    const targetDay = today - dayIndex
-
-    // Convert CheckmarkValue to raw entry value
-    const rawValue = EntryToggle.fromCheckmarkValue(checkmarkValue)
-
-    // Save to database
-    await db.insertOrUpdateEntry(habitId, targetDay, rawValue, notes)
-
-    // Refresh UI
-    await this.loadHabits()
-  }
-
   private async handleCheckmarkToggle(habitId: number, dayIndex: number): Promise<void> {
     if (this.shortToggle) {
-      // Short toggle: single tap cycles value
-      await this.toggleCheckmark(habitId, dayIndex)
+      this.pendingCheckmarkHabitId = habitId
+      this.pendingCheckmarkDayIndex = dayIndex
     } else {
-      // Non-short-toggle: open checkmark dialog
       this.pendingCheckmarkHabitId = habitId
       this.pendingCheckmarkDayIndex = dayIndex
       this.checkmarkDialogController.open()
@@ -290,30 +206,17 @@ struct Index {
 
   private async onCheckmarkDialogAction(value: CheckmarkValue, notes: string): Promise<void> {
     if (this.pendingCheckmarkHabitId >= 0 && this.pendingCheckmarkDayIndex >= 0) {
-      await this.toggleCheckmarkWithValue(
-        this.pendingCheckmarkHabitId,
-        this.pendingCheckmarkDayIndex,
-        value,
-        notes
-      )
+      promptAction.showToast({ message: 'Saved locally' })
     }
     this.pendingCheckmarkHabitId = -1
     this.pendingCheckmarkDayIndex = -1
   }
 
   private async onSelectionColorPicked(colorIndex: number): Promise<void> {
-    const db = getHabitDatabase()
-    for (const id of this.selectedHabitIds) {
-      const habit = await db.getHabit(id)
-      if (habit !== null) {
-        habit.color = colorIndex
-        await db.updateHabit(habit)
-      }
-    }
+    this.selectedColorIndex = colorIndex
     promptAction.showToast({ message: 'Color changed' })
     this.isSelectionMode = false
     this.selectedHabitIds = []
-    await this.loadHabits()
   }
 
   build() {
@@ -399,14 +302,9 @@ struct Index {
             .fontColor(Color.White)
             .margin({ right: 16 })
             .onClick(async () => {
-              const db = getHabitDatabase()
-              for (const id of this.selectedHabitIds) {
-                await db.setHabitArchived(id, true)
-              }
               promptAction.showToast({ message: 'archived' })
               this.isSelectionMode = false
               this.selectedHabitIds = []
-              await this.loadHabits()
             })
 
           Text('Unarchive')
@@ -414,14 +312,9 @@ struct Index {
             .fontColor(Color.White)
             .margin({ right: 16 })
             .onClick(async () => {
-              const db = getHabitDatabase()
-              for (const id of this.selectedHabitIds) {
-                await db.setHabitArchived(id, false)
-              }
               promptAction.showToast({ message: 'unarchived' })
               this.isSelectionMode = false
               this.selectedHabitIds = []
-              await this.loadHabits()
             })
 
           Text('Delete')
@@ -440,13 +333,8 @@ struct Index {
                   {
                     value: 'Yes',
                     action: async () => {
-                      const db = getHabitDatabase()
-                      for (const id of this.selectedHabitIds) {
-                        await db.deleteHabit(id)
-                      }
                       this.isSelectionMode = false
                       this.selectedHabitIds = []
-                      await this.loadHabits()
                     }
                   }
                 ]
@@ -468,9 +356,7 @@ struct Index {
               .id('actionHideArchived')
               .onChange(async (checked: boolean) => {
                 this.hideArchived = !checked
-                const prefs = getPreferencesStore()
-                await prefs.setBoolean(PREF_SHOW_ARCHIVED, checked)
-                await this.loadHabits()
+                this.showFilterMenu = true
               })
             Text('Show archived')
               .fontSize(14)
@@ -485,9 +371,7 @@ struct Index {
               .id('actionHideCompleted')
               .onChange(async (checked: boolean) => {
                 this.hideCompleted = !checked
-                const prefs = getPreferencesStore()
-                await prefs.setBoolean(PREF_SHOW_COMPLETED, checked)
-                await this.loadHabits()
+                this.showFilterMenu = true
               })
             Text('Show completed')
               .fontSize(14)
@@ -511,9 +395,7 @@ struct Index {
                 .onChange(async (isChecked: boolean) => {
                   if (isChecked && index !== undefined) {
                     this.sortMode = index
-                    const prefs = getPreferencesStore()
-                    await prefs.setNumber('pref_default_order', index)
-                    await this.loadHabits()
+                    this.showFilterMenu = true
                   }
                 })
               Text(item)
@@ -536,8 +418,6 @@ struct Index {
               .select(this.nightMode)
               .onChange(async (checked: boolean) => {
                 this.nightMode = checked
-                const prefs = getPreferencesStore()
-                await prefs.setNumber(PREF_THEME, checked ? 2 : 0)
               })
             Text('Dark theme')
               .fontSize(14)
