@@ -13,6 +13,7 @@ import { promptAction } from '@kit.ArkUI'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { HabitTypeDialog } from '../components/HabitTypeDialog'
 import { CheckmarkDialog } from '../components/CheckmarkDialog'
+import { NumberDialog } from '../components/NumberDialog'
 import { HabitColorPickerDialog } from '../components/ColorPickerDialog'
 
 @Entry
@@ -55,6 +56,19 @@ struct Index {
       unknownEnabled: this.unknownEnabled,
       onAction: (value: CheckmarkValue, notes: string) => {
         this.onCheckmarkDialogAction(value, notes)
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  })
+
+  private numberDialogController: CustomDialogController = new CustomDialogController({
+    builder: NumberDialog({
+      onSave: (_value: string, _notes: string) => {
+        promptAction.showToast({ message: 'Numerical entry ready to save' })
+      },
+      onSpecial: (_value: string, _notes: string) => {
+        promptAction.showToast({ message: 'Numerical entry ready to save' })
       }
     }),
     autoCancel: true,
@@ -555,7 +569,9 @@ struct Index {
                     unit: habit.unit,
                     color: PALETTE_COLORS[habit.color] || PALETTE_COLORS[8],
                     onEdit: (index: number) => {
-                      this.handleCheckmarkLongPress(habit.id, index)
+                      this.pendingCheckmarkHabitId = habit.id
+                      this.pendingCheckmarkDayIndex = index
+                      this.numberDialogController.open()
                     }
                   })
                 }
