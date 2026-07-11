@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Converted from selected_box.xml (shape: rectangle)
+     solid ?highlightedBackgroundColor -> #E0E0E0 (light theme default),
+     stroke 2dp @color/grey_500 -> #9E9E9E. No corner radius specified. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <rect x="1" y="1" width="98" height="98"
+        fill="#E0E0E0" stroke="#9E9E9E" stroke-width="2"/>
+</svg>

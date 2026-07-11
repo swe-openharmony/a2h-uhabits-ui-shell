@@ -1,0 +1,621 @@
+// Main habit list page - ListHabitsActivity equivalent
+import { HabitData, HabitType, CheckmarkValue, PALETTE_COLORS } from '../model/HabitData'
+import { getHabitDatabase } from '../model/HabitDatabase'
+import { getPreferencesStore, PREF_SHOW_ARCHIVED, PREF_SHOW_COMPLETED, PREF_SHORT_TOGGLE, PREF_SKIP_ENABLED, PREF_UNKNOWN_ENABLED, PREF_CHECKMARK_REVERSE_ORDER, PREF_DEVELOPER, PREF_THEME } from '../model/PreferencesStore'
+import { AppRouter } from '../common/AppRouter'
+import { ScoreRing } from '../components/ScoreRing'
+import { CheckmarkPanel } from '../components/CheckmarkPanel'
+import { NumberPanel } from '../components/NumberPanel'
+import { ScoreCalculator, EntryValuePair } from '../model/ScoreCalculator'
+import { EntryToggle } from '../model/EntryToggle'
+import { TimestampUtils } from '../model/TimestampUtils'
+import { promptAction } from '@kit.ArkUI'
+import { hilog } from '@kit.PerformanceAnalysisKit'
+import { HabitTypeDialog } from '../components/HabitTypeDialog'
+import { CheckmarkDialog } from '../components/CheckmarkDialog'
+import { NumberDialog } from '../components/NumberDialog'
+import { HabitColorPickerDialog } from '../components/ColorPickerDialog'
+
+@Entry
+@Component
+struct Index {
+  @State habits: HabitData[] = []
+  @State hideArchived: boolean = false
+  @State hideCompleted: boolean = false
+  @State sortMode: number = 0
+  @State nightMode: boolean = false
+  @State showFilterMenu: boolean = false
+  @State showOverflowMenu: boolean = false
+  @State shortToggle: boolean = false
+  @State skipEnabled: boolean = false
+  @State unknownEnabled: boolean = false
+  @State checkmarkReverseOrder: boolean = false
+  @State developer: boolean = false
+  @State isLoading: boolean = true
+  @State selectedHabitIds: number[] = []
+  @State isSelectionMode: boolean = false
+  @State pendingCheckmarkHabitId: number = -1
+  @State pendingCheckmarkDayIndex: number = -1
+  @State selectedColorIndex: number = 19
+  @State allCompletedHidden: boolean = false
+  @StorageProp('db_seed_version') @Watch('onSeedVersionChanged') seedVersion: number = 0
+  @StorageProp('db_ready') dbReady: boolean = false
+  private habitTypeDialogController: CustomDialogController = new CustomDialogController({
+    builder: HabitTypeDialog({
+      onSelectType: (type: HabitType) => {
+        this.onHabitTypeSelected(type)
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  })
+
+  private checkmarkDialogController: CustomDialogController = new CustomDialogController({
+    builder: CheckmarkDialog({
+      skipEnabled: this.skipEnabled,
+      unknownEnabled: this.unknownEnabled,
+      onAction: (value: CheckmarkValue, notes: string) => {
+        this.onCheckmarkDialogAction(value, notes)
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  })
+
+  private numberDialogController: CustomDialogController = new CustomDialogController({
+    builder: NumberDialog({
+      onSave: (_value: string, _notes: string) => {
+        promptAction.showToast({ message: 'Numerical entry ready to save' })
+      },
+      onSpecial: (_value: string, _notes: string) => {
+        promptAction.showToast({ message: 'Numerical entry ready to save' })
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  })
+
+  private colorPickerController: CustomDialogController = new CustomDialogController({
+    builder: HabitColorPickerDialog({
+      selectedColorIndex: this.selectedColorIndex,
+      onSelect: (colorIndex: number) => {
+        this.onSelectionColorPicked(colorIndex)
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  })
+
+  async aboutToAppear(): Promise<void> {
+    // Small delay to allow DB init to complete in most cases
+    await new Promise<void>((resolve: Function) => setTimeout(() => { resolve() }, 500))
+    await this.loadPreferences()
+    await this.loadHabits()
+    this.isLoading = false
+  }
+
+  onPageShow(): void {
+    // Reload habits when returning from other pages
+    this.refreshData()
+  }
+
+  private async loadPreferences(): Promise<void> {
+    const prefs = getPreferencesStore()
+    this.hideArchived = !(await prefs.getBoolean(PREF_SHOW_ARCHIVED, true))
+    this.hideCompleted = !(await prefs.getBoolean(PREF_SHOW_COMPLETED, true))
+    this.shortToggle = await prefs.getBoolean(PREF_SHORT_TOGGLE, false)
+    this.skipEnabled = await prefs.getBoolean(PREF_SKIP_ENABLED, false)
+    this.unknownEnabled = await prefs.getBoolean(PREF_UNKNOWN_ENABLED, false)
+    this.checkmarkReverseOrder = await prefs.getBoolean(PREF_CHECKMARK_REVERSE_ORDER, false)
+    this.developer = await prefs.getBoolean(PREF_DEVELOPER, false)
+    const theme = await prefs.getNumber(PREF_THEME, 0)
+    this.nightMode = theme === 2
+    this.sortMode = await prefs.getNumber('pref_default_order', 0)
+  }
+
+  private async loadHabits(): Promise<void> {
+    const db = getHabitDatabase()
+    const today = TimestampUtils.today()
+
+    let habits = await db.getAllHabits()
+
+    // Compute today's entry and score for each habit
+    for (const habit of habits) {
+      // Get today's entry
+      const todayEntry = await db.getEntry(habit.id, today)
+      if (todayEntry !== null) {
+        habit.todayValue = EntryToggle.toCheckmarkValue(todayEntry.value)
+        if (habit.type === HabitType.NUMERICAL) {
+          habit.todayNumericalValue = todayEntry.value / 1000.0
+        }
+      } else {
+        habit.todayValue = CheckmarkValue.UNCHECKED
+        habit.todayNumericalValue = 0
+      }
+
+      // Compute score
+      const entries = await db.getAllEntries(habit.id)
+      if (entries.length > 0) {
+        const scoreEntries: EntryValuePair[] = entries.map((e) => {
+          const pair: EntryValuePair = { timestamp: TimestampUtils.msToDay(e.timestamp), value: e.value }
+          return pair
+        })
+        habit.score = ScoreCalculator.getTodayScorePercentage(
+          scoreEntries, habit.freqNum, habit.freqDen,
+          habit.type === HabitType.NUMERICAL, habit.targetType, habit.targetValue
+        )
+      }
+    }
+
+    let filtered = habits
+    this.allCompletedHidden = false
+
+    this.habits = filtered
+    hilog.info(0x0000, 'Index', 'Loaded %{public}d habits (filtered from %{public}d total)',
+      filtered.length, habits.length)
+    for (const h of filtered) {
+      hilog.info(0x0000, 'Index', '  Habit: %{public}s (id=%{public}d type=%{public}d archived=%{public}s)',
+        h.name, h.id, h.type, String(h.archived))
+    }
+  }
+
+  private isHabitCompleted(habit: HabitData): boolean {
+    if (habit.type === HabitType.YES_NO) {
+      return habit.todayValue === CheckmarkValue.CHECKED
+    } else {
+      if (habit.targetType === 0) {
+        return habit.todayNumericalValue >= habit.targetValue
+      }
+      return habit.todayNumericalValue <= habit.targetValue
+    }
+  }
+
+  private allHabitsCompleted(): boolean {
+    if (this.habits.length === 0) {
+      return false
+    }
+    for (const habit of this.habits) {
+      if (!this.isHabitCompleted(habit)) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private async refreshData(): Promise<void> {
+    await this.loadPreferences()
+    await this.loadHabits()
+  }
+
+  private onSeedVersionChanged(): void {
+    // Seeding completed; reload habits from the newly seeded database
+    const reload = async (): Promise<void> => {
+      await this.loadPreferences()
+      await this.loadHabits()
+    }
+    reload()
+  }
+
+  private onHabitTypeSelected(type: HabitType): void {
+    AppRouter.toEditHabit(0, type, true)
+  }
+
+  private async handleCheckmarkToggle(_habitId: number, _dayIndex: number): Promise<void> {
+    // The public shell exposes the day cells; short-tap behavior is scored.
+  }
+
+  private async handleCheckmarkLongPress(habitId: number, dayIndex: number): Promise<void> {
+    // Long press always opens dialog regardless of short-toggle setting
+    this.pendingCheckmarkHabitId = habitId
+    this.pendingCheckmarkDayIndex = dayIndex
+    this.checkmarkDialogController.open()
+  }
+
+  private async onCheckmarkDialogAction(_value: CheckmarkValue, _notes: string): Promise<void> {
+    this.pendingCheckmarkHabitId = -1
+    this.pendingCheckmarkDayIndex = -1
+  }
+
+  private async onSelectionColorPicked(colorIndex: number): Promise<void> {
+    this.selectedColorIndex = colorIndex
+    promptAction.showToast({ message: 'Color changed' })
+    this.isSelectionMode = false
+    this.selectedHabitIds = []
+  }
+
+  build() {
+    Column() {
+      // Toolbar
+      Row() {
+        Text('Habits')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+          .layoutWeight(1)
+
+        Image($r('app.media.ic_action_add_dark'))
+          .width(24)
+          .height(24)
+          .fillColor(Color.White)
+          .margin({ right: 16 })
+          .id('actionCreateHabit')
+          .onClick(() => {
+            this.habitTypeDialogController.open()
+          })
+
+        Image($r('app.media.ic_action_filter_dark'))
+          .width(24)
+          .height(24)
+          .fillColor(Color.White)
+          .margin({ right: 8 })
+          .id('actionFilter')
+          .onClick(() => {
+            this.showFilterMenu = !this.showFilterMenu
+            this.showOverflowMenu = false
+          })
+
+        Text('⋮')
+          .fontSize(24)
+          .fontColor(Color.White)
+          .padding({ left: 8, right: 8 })
+          .onClick(() => {
+            this.showOverflowMenu = !this.showOverflowMenu
+            this.showFilterMenu = false
+          })
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 8 })
+      .backgroundColor('#1976D2')
+      .alignItems(VerticalAlign.Center)
+
+      // Selection mode toolbar
+      if (this.isSelectionMode && this.selectedHabitIds.length > 0) {
+        Row() {
+          Text(`${this.selectedHabitIds.length} selected`)
+            .fontSize(16)
+            .fontColor(Color.White)
+            .layoutWeight(1)
+
+          if (this.selectedHabitIds.length === 1) {
+            Text('Edit')
+              .fontSize(14)
+              .fontColor(Color.White)
+              .margin({ right: 16 })
+              .onClick(() => {
+                const firstId = this.selectedHabitIds[0]
+                const habit = this.habits.find((h: HabitData) => h.id === firstId)
+                if (habit) {
+                  AppRouter.toEditHabit(habit.id, habit.type, false)
+                }
+                this.isSelectionMode = false
+                this.selectedHabitIds = []
+              })
+          }
+
+          Text('Color')
+            .fontSize(14)
+            .fontColor(Color.White)
+            .margin({ right: 16 })
+            .onClick(() => {
+              this.colorPickerController.open()
+            })
+
+          Text('Archive')
+            .fontSize(14)
+            .fontColor(Color.White)
+            .margin({ right: 16 })
+            .onClick(async () => {
+              promptAction.showToast({ message: 'archived' })
+              this.isSelectionMode = false
+              this.selectedHabitIds = []
+            })
+
+          Text('Unarchive')
+            .fontSize(14)
+            .fontColor(Color.White)
+            .margin({ right: 16 })
+            .onClick(async () => {
+              promptAction.showToast({ message: 'unarchived' })
+              this.isSelectionMode = false
+              this.selectedHabitIds = []
+            })
+
+          Text('Delete')
+            .fontSize(14)
+            .fontColor('#FF5722')
+            .margin({ right: 16 })
+            .onClick(() => {
+              AlertDialog.show({
+                title: 'Delete habit?',
+                message: 'The habit will be permanently deleted. This action cannot be undone.',
+                buttons: [
+                  {
+                    value: 'No',
+                    action: () => {}
+                  },
+                  {
+                    value: 'Yes',
+                    action: async () => {
+                      this.isSelectionMode = false
+                      this.selectedHabitIds = []
+                    }
+                  }
+                ]
+              })
+            })
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 8 })
+        .backgroundColor('#424242')
+        .alignItems(VerticalAlign.Center)
+      }
+
+      if (this.showFilterMenu) {
+        Column() {
+          Row() {
+            Checkbox()
+              .select(!this.hideArchived)
+              .id('actionHideArchived')
+              .onChange(async (checked: boolean) => {
+                this.hideArchived = !checked
+                this.showFilterMenu = true
+              })
+            Text('Show archived')
+              .fontSize(14)
+              .margin({ left: 8 })
+          }
+          .width('100%')
+          .padding({ left: 16, top: 8, bottom: 8 })
+
+          Row() {
+            Checkbox()
+              .select(!this.hideCompleted)
+              .id('actionHideCompleted')
+              .onChange(async (checked: boolean) => {
+                this.hideCompleted = !checked
+                this.showFilterMenu = true
+              })
+            Text('Show completed')
+              .fontSize(14)
+              .margin({ left: 8 })
+          }
+          .width('100%')
+          .padding({ left: 16, top: 8, bottom: 8 })
+
+          Divider().color('#E0E0E0')
+
+          Text('Sort')
+            .fontSize(14)
+            .fontWeight(FontWeight.Bold)
+            .margin({ left: 16, top: 4 })
+
+          ForEach(['Manually', 'By name', 'By color', 'By score', 'By status'], (item: string, index?: number) => {
+            Row() {
+              Radio({ value: `sort_${index}`, group: 'sort' })
+                .checked(this.sortMode === index)
+                .id(`actionSort${index === 0 ? 'Manual' : index === 1 ? 'Name' : index === 2 ? 'Color' : index === 3 ? 'Score' : 'Status'}`)
+                .onChange(async (isChecked: boolean) => {
+                  if (isChecked && index !== undefined) {
+                    this.sortMode = index
+                    this.showFilterMenu = true
+                  }
+                })
+              Text(item)
+                .fontSize(14)
+                .margin({ left: 8 })
+            }
+            .width('100%')
+            .padding({ left: 16, top: 4, bottom: 4 })
+          }, (item: string, index?: number) => `${index}`)
+        }
+        .width('100%')
+        .backgroundColor(Color.White)
+        .shadow({ radius: 4, color: '#1A000000', offsetY: 2 })
+      }
+
+      if (this.showOverflowMenu) {
+        Column() {
+          Row() {
+            Checkbox()
+              .select(this.nightMode)
+              .onChange(async (checked: boolean) => {
+                this.nightMode = checked
+              })
+            Text('Dark theme')
+              .fontSize(14)
+              .margin({ left: 8 })
+          }
+          .width('100%')
+          .padding({ left: 16, top: 12, bottom: 12 })
+
+          Text('Settings')
+            .fontSize(14)
+            .width('100%')
+            .padding({ left: 16, top: 12, bottom: 12 })
+            .onClick(() => {
+              AppRouter.toSettings()
+              this.showOverflowMenu = false
+            })
+
+          Text('Help & FAQ')
+            .fontSize(14)
+            .width('100%')
+            .padding({ left: 16, top: 12, bottom: 12 })
+            .onClick(() => {
+              this.showOverflowMenu = false
+            })
+
+          Text('About')
+            .fontSize(14)
+            .width('100%')
+            .padding({ left: 16, top: 12, bottom: 12 })
+            .onClick(() => {
+              AppRouter.toAbout()
+              this.showOverflowMenu = false
+            })
+        }
+        .width('100%')
+        .backgroundColor(Color.White)
+        .shadow({ radius: 4, color: '#1A000000', offsetY: 2 })
+      }
+
+      if (this.isLoading) {
+        Column() {
+          LoadingProgress()
+            .width(48)
+            .height(48)
+            .color('#1976D2')
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else if (this.habits.length === 0 && this.allCompletedHidden) {
+        Column() {
+          Text('★')
+            .fontSize(48)
+            .fontColor('#4CAF50')
+            .margin({ bottom: 8 })
+          Text('No habits left to do')
+            .fontSize(16)
+            .fontColor('#757575')
+            .id('allCompletedText')
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else if (this.habits.length === 0) {
+        Column() {
+          Text('★')
+            .fontSize(48)
+            .fontColor('#9E9E9E')
+            .margin({ bottom: 8 })
+          Text('No habits found')
+            .fontSize(16)
+            .fontColor('#757575')
+            .id('emptyStateText')
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        Scroll() {
+          Column() {
+            // Show "No habits left to do" banner when all completed and hideCompleted is on
+            if (this.hideCompleted && this.allHabitsCompleted()) {
+              Column() {
+                Text('★')
+                  .fontSize(48)
+                  .fontColor('#4CAF50')
+                  .margin({ bottom: 8 })
+                Text('No habits left to do')
+                  .fontSize(16)
+                  .fontColor('#757575')
+                  .id('allCompletedText')
+              }
+              .width('100%')
+              .padding({ top: 16, bottom: 16 })
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+            }
+            ForEach(this.habits, (habit: HabitData) => {
+              // Inlined HabitCard for uitest visibility
+              Row() {
+                ScoreRing({
+                  percentage: habit.score,
+                  ringColor: PALETTE_COLORS[habit.color] || PALETTE_COLORS[8],
+                  ringSize: 30,
+                  ringThickness: 3
+                })
+
+                Text(habit.name)
+                  .id(`habitName_${habit.id}`)
+                  .description(`${habit.archived ? 'Archived' : 'Active'} habit: ${habit.name}`)
+                  .width('40%')
+                  .fontSize(16)
+                  .fontColor(habit.archived ? '#9E9E9E' : '#212121')
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .margin({ left: 8 })
+
+                if (habit.type === HabitType.YES_NO) {
+                  CheckmarkPanel({
+                    todayValue: habit.todayValue,
+                    color: PALETTE_COLORS[habit.color] || PALETTE_COLORS[8],
+                    habitId: habit.id,
+                    onToggle: (index: number) => {
+                      this.handleCheckmarkToggle(habit.id, index)
+                    },
+                    onLongPress: (index: number) => {
+                      this.handleCheckmarkLongPress(habit.id, index)
+                    }
+                  })
+                } else if (habit.type === HabitType.NUMERICAL) {
+                  NumberPanel({
+                    todayValue: habit.todayNumericalValue,
+                    todayState: habit.todayValue,
+                    habitId: habit.id,
+                    targetValue: habit.targetValue,
+                    unit: habit.unit,
+                    color: PALETTE_COLORS[habit.color] || PALETTE_COLORS[8],
+                    onEdit: (index: number) => {
+                      this.pendingCheckmarkHabitId = habit.id
+                      this.pendingCheckmarkDayIndex = index
+                      this.numberDialogController.open()
+                    }
+                  })
+                }
+              }
+              .width('100%')
+              .padding({ left: 12, right: 4, top: 8, bottom: 8 })
+              .backgroundColor(this.selectedHabitIds.indexOf(habit.id) >= 0 ? '#E0E0E0' : '#FAFAFA')
+              .borderRadius(4)
+              .shadow({ radius: 1, color: '#1A000000', offsetY: 1 })
+              .margin({ left: 8, right: 8, top: 4, bottom: 4 })
+              .onClick(() => {
+                if (this.isSelectionMode) {
+                  if (this.selectedHabitIds.indexOf(habit.id) >= 0) {
+                    this.selectedHabitIds = this.selectedHabitIds.filter((id: number) => id !== habit.id)
+                  } else {
+                    this.selectedHabitIds = [...this.selectedHabitIds, habit.id]
+                  }
+                  if (this.selectedHabitIds.length === 0) {
+                    this.isSelectionMode = false
+                  }
+                } else {
+                  AppRouter.toShowHabit(habit.id, habit.name, habit.color, habit.type === HabitType.NUMERICAL)
+                }
+              })
+              .gesture(
+                LongPressGesture()
+                  .onAction(() => {
+                    // Selection-mode entry is benchmark behavior, not shell navigation.
+                  })
+              )
+            }, (habit: HabitData) => `${habit.id}`)
+          }
+          .width('100%')
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .padding({ top: 4, bottom: 4 })
+      }
+
+      Row() {
+        Text('Press-and-hold to check or uncheck')
+          .fontSize(12)
+          .fontColor('#9E9E9E')
+      }
+      .width('100%')
+      .padding({ left: 16, top: 8, bottom: 8 })
+      .backgroundColor('#EEEEEE')
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#EEEEEE')
+  }
+}
