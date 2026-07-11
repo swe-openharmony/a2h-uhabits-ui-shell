@@ -18,7 +18,8 @@ export struct NumberButton {
   build() {
     Text(this.getDisplayText())
       .id(`numberCell_${this.habitId}_${this.dayIndex}`)
-      .description(this.getAccessibilityDescription())
+      .accessibilityText(this.getAccessibilityDescription())
+      .accessibilityDescription(this.getAccessibilityDescription())
       .width(48)
       .height(48)
       .fontSize(12)

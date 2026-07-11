@@ -165,6 +165,8 @@ struct EditHabitPage {
 
         Button('Save')
           .id('buttonSave')
+          .accessibilityText('Save')
+          .accessibilityDescription('Save habit')
           .fontSize(14)
           .fontColor(Color.White)
           .backgroundColor(Color.Transparent)
@@ -191,6 +193,8 @@ struct EditHabitPage {
                 .margin({ bottom: 4 })
               TextInput({ text: this.habitName, placeholder: 'e.g. Exercise' })
                 .id('nameInput')
+                .accessibilityText('Name')
+                .accessibilityDescription('Habit name')
                 .fontSize(16)
                 .type(InputType.Normal)
                 .layoutWeight(1)
@@ -242,6 +246,8 @@ struct EditHabitPage {
               .margin({ bottom: 4 })
             TextInput({ text: this.habitQuestion, placeholder: 'e.g. Did you exercise today?' })
               .id('questionInput')
+              .accessibilityText('Question')
+              .accessibilityDescription('Habit question')
               .fontSize(16)
               .type(InputType.Normal)
               .onChange((value: string) => {
@@ -284,6 +290,8 @@ struct EditHabitPage {
               .margin({ bottom: 4 })
             TextInput({ text: this.unitText, placeholder: 'e.g. miles' })
               .id('unitInput')
+              .accessibilityText('Unit')
+              .accessibilityDescription('Numerical habit unit')
               .fontSize(16)
               .type(InputType.Normal)
               .onChange((value: string) => {
@@ -305,6 +313,8 @@ struct EditHabitPage {
                 .margin({ bottom: 4 })
               TextInput({ text: this.targetValue, placeholder: 'e.g. 15' })
                 .id('targetInput')
+                .accessibilityText('Target')
+                .accessibilityDescription('Numerical habit target')
                 .fontSize(16)
                 .type(InputType.Number)
                 .layoutWeight(1)
@@ -413,6 +423,8 @@ struct EditHabitPage {
               .margin({ bottom: 4 })
             TextInput({ text: this.notesText, placeholder: '(Optional)' })
               .id('notesInput')
+              .accessibilityText('Notes')
+              .accessibilityDescription('Habit notes')
               .fontSize(16)
               .type(InputType.Normal)
               .onChange((value: string) => {

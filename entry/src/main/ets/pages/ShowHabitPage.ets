@@ -275,6 +275,7 @@ struct ShowHabitPage {
           .fontSize(24)
           .fontColor(Color.White)
           .padding({ left: 8, right: 8 })
+          .id('overflow_menu')
           .onClick(() => {
             this.showMenu = !this.showMenu
           })
@@ -311,9 +312,8 @@ struct ShowHabitPage {
             .padding({ left: 16, top: 12, bottom: 12 })
             .onClick(async () => {
               promptAction.showToast({
-                message: this.habitArchived ? 'Habit unarchived' : 'Habit archived'
+                message: this.habitArchived ? 'Unarchive preview' : 'Archive preview'
               })
-              this.habitArchived = !this.habitArchived
               this.showMenu = false
             })
 
@@ -323,13 +323,14 @@ struct ShowHabitPage {
               .width('100%')
               .padding({ left: 16, top: 12, bottom: 12 })
               .onClick(async () => {
-                this.totalEntries = 0
-                this.streaks = []
+                promptAction.showToast({ message: 'Randomize preview' })
                 this.showMenu = false
               })
           }
 
           Text('Delete')
+            .id('actionDeleteHabit')
+            .accessibilityText('Delete')
             .fontSize(14)
             .fontColor('#F44336')
             .width('100%')
@@ -342,9 +343,7 @@ struct ShowHabitPage {
                   { value: 'No', action: () => {} },
                   {
                     value: 'Yes',
-                    action: async () => {
-                      AppRouter.back()
-                    }
+                    action: () => {}
                   }
                 ]
               })

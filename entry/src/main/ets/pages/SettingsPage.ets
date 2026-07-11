@@ -10,6 +10,7 @@ struct SettingsPage {
   @State settingData: SettingCategory[] = SETTINGS_CATEGORIES
   @State toggleStates: Record<string, boolean> = {}
   @State initialized: boolean = false
+  @State firstDayOfWeek: string = 'Monday'
 
   async aboutToAppear(): Promise<void> {
     await this.loadToggleStates()
@@ -48,6 +49,17 @@ struct SettingsPage {
 
   private async handleItemClick(key: string): Promise<void> {
     switch (key) {
+      case 'pref_first_weekday':
+        AlertDialog.show({
+          title: 'First day of the week',
+          message: 'Select a day',
+          buttons: [
+            { value: 'Saturday', action: () => { this.firstDayOfWeek = 'Saturday' } },
+            { value: 'Sunday', action: () => { this.firstDayOfWeek = 'Sunday' } },
+            { value: 'Monday', action: () => { this.firstDayOfWeek = 'Monday' } }
+          ]
+        })
+        break
       case 'export_db':
         await this.exportFullBackup()
         break
@@ -136,12 +148,16 @@ struct SettingsPage {
                       type: ToggleType.Switch,
                       isOn: this.toggleStates[item.key] ?? (item.value as boolean) ?? false
                     })
+                      .id(item.key)
                       .onChange((isOn: boolean) => {
                         this.handleToggle(item.key, isOn)
                       })
                       .selectedColor('#1976D2')
                   } else if (item.type === 'select') {
-                    Text(item.value as string ?? '')
+                    Text(item.key === 'pref_first_weekday' ? this.firstDayOfWeek : (item.value as string ?? ''))
+                      .id(item.key)
+                      .accessibilityText(item.title)
+                      .accessibilityDescription(`${item.title}: ${item.key === 'pref_first_weekday' ? this.firstDayOfWeek : (item.value as string ?? '')}`)
                       .fontSize(14)
                       .fontColor('#757575')
                   } else {

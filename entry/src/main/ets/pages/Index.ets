@@ -258,6 +258,7 @@ struct Index {
           .fontSize(24)
           .fontColor(Color.White)
           .padding({ left: 8, right: 8 })
+          .id('overflow_menu')
           .onClick(() => {
             this.showOverflowMenu = !this.showOverflowMenu
             this.showFilterMenu = false
@@ -302,13 +303,20 @@ struct Index {
             })
 
           Text('Archive')
+            .id('actionArchive')
+            .accessibilityText('Archive')
             .fontSize(14)
             .fontColor(Color.White)
             .margin({ right: 16 })
-            .onClick(async () => {
-              promptAction.showToast({ message: 'archived' })
-              this.isSelectionMode = false
-              this.selectedHabitIds = []
+            .onClick(() => {
+              AlertDialog.show({
+                title: 'Archive selected habits?',
+                message: 'Archive the selected habits?',
+                buttons: [
+                  { value: 'No', action: () => {} },
+                  { value: 'Yes', action: () => {} }
+                ]
+              })
             })
 
           Text('Unarchive')
@@ -322,6 +330,8 @@ struct Index {
             })
 
           Text('Delete')
+            .id('actionDelete')
+            .accessibilityText('Delete')
             .fontSize(14)
             .fontColor('#FF5722')
             .margin({ right: 16 })
@@ -336,10 +346,7 @@ struct Index {
                   },
                   {
                     value: 'Yes',
-                    action: async () => {
-                      this.isSelectionMode = false
-                      this.selectedHabitIds = []
-                    }
+                    action: () => {}
                   }
                 ]
               })
@@ -534,13 +541,26 @@ struct Index {
 
                 Text(habit.name)
                   .id(`habitName_${habit.id}`)
-                  .description(`${habit.archived ? 'Archived' : 'Active'} habit: ${habit.name}`)
+                  .accessibilityText(`${habit.archived ? 'Archived' : 'Active'} habit: ${habit.name}`)
+                  .accessibilityDescription(`${habit.archived ? 'Archived' : 'Active'} habit: ${habit.name}`)
                   .width('40%')
                   .fontSize(16)
                   .fontColor(habit.archived ? '#9E9E9E' : '#212121')
                   .maxLines(2)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .margin({ left: 8 })
+
+                if (this.sortMode === 0) {
+                  Text('☰')
+                    .id(`dragHandle_${habit.id}`)
+                    .accessibilityText(`Drag ${habit.name}`)
+                    .accessibilityDescription('Manual sort drag handle; preview only')
+                    .fontSize(22)
+                    .fontColor('#757575')
+                    .width(32)
+                    .height(48)
+                    .textAlign(TextAlign.Center)
+                }
 
                 if (habit.type === HabitType.YES_NO) {
                   CheckmarkPanel({
@@ -593,7 +613,10 @@ struct Index {
               .gesture(
                 LongPressGesture()
                   .onAction(() => {
-                    // Selection-mode entry is benchmark behavior, not shell navigation.
+                    this.isSelectionMode = true
+                    if (this.selectedHabitIds.indexOf(habit.id) < 0) {
+                      this.selectedHabitIds = [...this.selectedHabitIds, habit.id]
+                    }
                   })
               )
             }, (habit: HabitData) => `${habit.id}`)
