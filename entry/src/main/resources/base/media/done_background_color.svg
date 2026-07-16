@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Converted from done_background_color.xml (selector)
+     Extracted default (no-state) item: @color/circle_background = #f2f2f2.
+     Other states: focused -> @color/blue_focused (#c1e8f7), pressed -> @color/blue (#33b5e5). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <rect x="0" y="0" width="100" height="100" fill="#f2f2f2"/>
+</svg>

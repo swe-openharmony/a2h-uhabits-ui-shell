@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Converted from card_dark_background.xml (layer-list)
+     4 layers creating a bordered card with dark border (#202020/#101010) and #303030 body (grey_850).
+     Layer 1: full canvas #202020
+     Layer 2: inset bottom 1dp -> #101010
+     Layer 3: inset bottom 1.5dp -> #202020
+     Layer 4: inset top 0.5dp, bottom 1.5dp, left 0.5dp, right 0.5dp -> #303030 (grey_850) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <!-- Layer 1: full canvas #202020 -->
+  <rect x="0" y="0" width="100" height="100" fill="#202020"/>
+  <!-- Layer 2: inset bottom 1px -> #101010 -->
+  <rect x="0" y="0" width="100" height="99" fill="#101010"/>
+  <!-- Layer 3: inset bottom 1.5px -> #202020 -->
+  <rect x="0" y="0" width="100" height="98.5" fill="#202020"/>
+  <!-- Layer 4: inset top 0.5px, bottom 1.5px, left 0.5px, right 0.5px -> #303030 -->
+  <rect x="0.5" y="0.5" width="99" height="98" fill="#303030"/>
+</svg>
