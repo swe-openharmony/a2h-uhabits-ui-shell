@@ -1,0 +1,11 @@
+{
+  "integer": [
+    { "name": "snooze_15", "value": 15 },
+    { "name": "snooze_30", "value": 30 },
+    { "name": "snooze_60", "value": 60 },
+    { "name": "snooze_120", "value": 120 },
+    { "name": "snooze_240", "value": 240 },
+    { "name": "snooze_480", "value": 480 },
+    { "name": "snooze_1440", "value": 1440 }
+  ]
+}
